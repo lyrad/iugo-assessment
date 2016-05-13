@@ -41,8 +41,8 @@ $expected_inputs = [
         'transaction' =>  array(
                  "type" => 'POST',
                  "data" => array(
-                 "JSON" => array(
-        	         "TransactionId" => "is_int",
+                 	"JSON" => array(
+        	        	"TransactionId" => "is_int",
                                         "UserId" => "is_int",
                                         "CurrencyAmount" => "is_int",
                                         "Verifier" => "is_string"
@@ -74,6 +74,7 @@ $expected_inputs = [
                                         "UserId" => "is_int",
                                         "LeaderboardId" => "is_int",
                                         "Offset" => "is_int",
+                                        "Limit" => "is_int"
                                )
                         )
                 ),
@@ -82,7 +83,7 @@ $expected_inputs = [
                         "data" => array(
                                 "JSON" => array(
                                         "UserId" => "is_int",
-                                        "Data" => "is_string"
+                                        "Data" => "is_array"
                                 )
                         )
                 ),

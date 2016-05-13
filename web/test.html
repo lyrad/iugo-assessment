@@ -95,13 +95,14 @@ $(function() {
                 //////////////////////////
 		{title: 'Not declared endpoint', type: 'POST', endpoint:'notexists'},
 		{title: 'Not implemented endpoint', type: 'POST', endpoint:'notimplementedendpoint'},
-		{title: 'Bad input type (JSON index missing)', type: 'POST', endpoint:'notimplementedendpoint'},
-		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'notimplementedendpoint'},
-		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'notimplementedendpoint'},
-		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'notimplementedendpoint'},
-		{title: 'Bad input type (Argument wrong type)', endpoint:'notimplementedendpoint'},
-		{title: 'Bad input type (Argument wrong type)', endpoint:'notimplementedendpoint'},
-		{title: 'Bad input type (Argument wrong type)', endpoint:'notimplementedendpoint'},
+		// {title: 'Bad input type (JSON index missing)', type: 'POST', endpoint:'notimplementedendpoint'},
+
+		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:5, Offset:0, Limit:1000}},
+		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'scorepost', JSON:{UserId:5, LeaderboardId:3}},
+
+		{title: 'Bad input type (Parameter wrong type)', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:5, LeaderboardId:1,Offset:0, Limit:"1000"}},
+		{title: 'Bad input type (Parameter wrong type)', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:5, LeaderboardId:1,Offset:0, Limit:"test"}},
+		{title: 'Bad input type (Parameter wrong type)', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:5, LeaderboardId:'1',Offset:0, Limit:300}},
 	];
 
 	$.each(request_array, function(index, request) {
@@ -112,9 +113,16 @@ $(function() {
 			async: false,
 			data: {JSON:JSON.stringify(request.JSON)},
 		}).always(function( data, textStatus, xhr ) {
+			var statusCode;
+			var statusText;
+			if(typeof xhr.status == 'undefined')statusCode = data.status;
+			else statusCode = xhr.status;
+			if(typeof xhr.statusText == 'undefined')statusText = data.statusText;
+			else statusText = xhr.statusText;
+
 			$('#result').append('<h3>' + request.title + '</h3>');
 			$('#result').append('<div style="background-color: #ffe6e6; border: 1px solid black; margin-bottom:5px">Request type : ' + request.type + '<br>Request url : ' + server_url + request.endpoint + '<br>Request data : ' + JSON.stringify(request.JSON) + '</div>');
-			$('#result').append('<div style="background-color: #e6f2ff; border: 1px solid black">Response HTTP code: ' + xhr.status  +  '<br>Response HTTP Text: ' + xhr.statusText + '<br>Response content: ' + JSON.stringify(data) + '</div>');
+			$('#result').append('<div style="background-color: #e6f2ff; border: 1px solid black">Response HTTP code: ' + statusCode +  '<br>Response HTTP Text: ' + statusText + '<br>Response content: ' + JSON.stringify(data) + '</div>');
 		});
 	});
 });

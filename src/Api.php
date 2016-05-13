@@ -34,6 +34,8 @@ class Api
 	{
 		// Save the HTTP request & API key in class attribute
 		$this->_request = $request;
+
+		// If JSON index exists in request, erase the whole $_POST array with its content, json decoded
 		If(true === isset($this->_request->request['JSON'])) {
 			$this->_request->request = json_decode($this->_request->request['JSON'], true);
 		}
@@ -60,6 +62,18 @@ class Api
 			// return a 501 HTTP status
 			return new Response(json_encode(array('Error' => true, 'ErrorMessage' => 'Endpoint not implemented')), Response::HTTP_NOT_IMPLEMENTED);
 		} else {
+			// Check if configuration matches with request params => filter inputs
+			if(true === isset($this->_expected_inputs[$endpoint]["data"]["JSON"])) {
+				// If endpoint is expects parameters
+				foreach($this->_expected_inputs[$endpoint]["data"]["JSON"] as $param_name => $param_validation) {
+					if(false === isset($this->_request->request[$param_name]) || false === $param_validation($this->_request->request[$param_name])) {
+						// Param name configured is missing or param value is not valid
+						// Return 500 HTTP status
+						return new Response(json_encode(array('Error' => true, 'ErrorMessage' => 'A parameter is missing or has a wrong type. Please check your request.')), Response::HTTP_INTERNAL_SERVER_ERROR);
+					}
+				}	
+			}
+
 			try {
 				// Execute endpoint method and return result (HTTP response obj)
 				$response = $this->$endpoint();
