@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+<script src="functions.js"></script>
+
+<script>
+// Document ready
+$(function() {
+	var server_url = 'http://10.0.1.15/';
+	var api_key = "NwvprhfBkGuPJnjJp77UPJWJUpgC7mLz";
+
+	var request_array = [
+		// RESET DATABASE
+		{title: 'Reset database', type: 'GET', endpoint:'reset'},
+
+		////////////////////////////
+		///TESTING USER ENDPOINTS///
+		////////////////////////////
+		{title: '1. Timestamp', type: 'GET', endpoint:'timestamp'},
+		{title: '7. User Load : not existing user', type: 'POST', endpoint:'userload', JSON:{UserId:1}},
+		{title: '6. User Save : not existing user with no userdata object', type: 'POST', endpoint:'usersave', JSON:{UserId:1, Data:{}}},
+		{title: '7. User Load : view last change', type: 'POST', endpoint:'userload', JSON:{UserId:1}},
+		{title: '6. User Save : existing user (last saved) update with 2 not existing userdata objects)', type:'POST', endpoint:'usersave', JSON:{UserId:1, Data:{Piece1:{SubData:1234, SubData2:"abcd"}, Piece2:{SubData:{SubSubData: 9999}}}}},
+		{title: '7. User Load : view last change', type: 'POST', endpoint:'userload', JSON:{UserId:1}},
+		{title: '6. User Save : existing user (last saved) update with 1 existing (but modified) userdata object', type: 'POST', endpoint:'usersave', JSON:{UserId:1, Data:{Piece1:{SubData:4321, SubData2:"dcba"}}}},
+		{title: '7. User Load : view last change', type: 'POST', endpoint:'userload', JSON:{UserId:1}},
+		
+		// ADDING SOME FURTHER USER FOR NEXT TESTS
+		{title: '6. User Save : not existing user with no userdata object', type: 'POST', endpoint:'usersave', JSON:{UserId:2, Data:{}}},
+		{title: '6. User Save : not existing user with no userdata object', type: 'POST', endpoint:'usersave', JSON:{UserId:3, Data:{}}},
+		{title: '6. User Save : not existing user with no userdata object', type: 'POST', endpoint:'usersave', JSON:{UserId:4, Data:{}}},
+		{title: '6. User Save : not existing user with no userdata object', type: 'POST', endpoint:'usersave', JSON:{UserId:5, Data:{}}},
+		{title: '6. User Save : not existing user with no userdata object', type: 'POST', endpoint:'usersave', JSON:{UserId:6, Data:{}}},
+		
+		///////////////////////////////////
+                ///TESTING TRANSACTION ENDPOINTS///
+                ///////////////////////////////////
+		// ADDING TRANSACTIONS TO USERS (2 for eachs exept 5/6 with 1 and no transaction).
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:1, UserId:1, CurrencyAmount: 101, Verifier: sha1(api_key+'11101')}}, 
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:2, UserId:1, CurrencyAmount: 102, Verifier: sha1(api_key+'21102')}}, 
+		{title: '3. Transaction Data Querying : Last added transaction (2 for this user)', type: 'POST', endpoint:'transactionstats', JSON:{UserId:1}},
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:3, UserId:2, CurrencyAmount: 201, Verifier: sha1(api_key+'32201')}},
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:4, UserId:2, CurrencyAmount: 202, Verifier: sha1(api_key+'42202')}},
+		{title: '3. Transaction Data Querying : Last added transaction (2 for this user)', type: 'POST', endpoint:'transactionstats', JSON:{UserId:2}},
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:5, UserId:3, CurrencyAmount: 301, Verifier: sha1(api_key+'53301')}},
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:6, UserId:3, CurrencyAmount: 302, Verifier: sha1(api_key+'63302')}},
+		{title: '3. Transaction Data Querying : Last added transaction (2 for this user)', type: 'POST', endpoint:'transactionstats', JSON:{UserId:3}},
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:7, UserId:4, CurrencyAmount: 401, Verifier: sha1(api_key+'74401')}},
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:8, UserId:4, CurrencyAmount: 402, Verifier: sha1(api_key+'84402')}},
+		{title: '3. Transaction Data Querying : Last added transaction (2 for this user)', type: 'POST', endpoint:'transactionstats', JSON:{UserId:4}},
+		{title: '2. Transation Recording', type: 'POST', endpoint:'transaction', JSON:{TransactionId:9, UserId:5, CurrencyAmount: 501, Verifier: sha1(api_key+'95501')}},
+		{title: '3. Transaction Data Querying : Last added transaction (1 for this user)', type: 'POST', endpoint:'transactionstats', JSON:{UserId:5}},
+		{title: '3. Transaction Data Querying : no transaction for this user', type: 'POST', endpoint:'transactionstats', JSON:{UserId:6}},
+
+		// ADDING ALREADY EXISTING TRANSACTION
+		{title: '2. Transation Recording : already existing transaction id', type: 'POST', endpoint:'transaction', JSON:{TransactionId:1, UserId:6, CurrencyAmount: 601, Verifier: sha1(api_key+'16601')}},
+		// ADDING NOT EXISTING TRANSACTION USER ID
+		{title: '2. Transation Recording : not existing user id', type: 'POST', endpoint:'transaction', JSON:{TransactionId:10, UserId:7, CurrencyAmount: 701, Verifier: sha1(api_key+'107701')}},
+		// ADDING TRANSACTION : VERIFIER ERROR
+		{title: '2. Transation Recording : verifier error', type: 'POST', endpoint:'transaction', JSON:{TransactionId:10, UserId:5, CurrencyAmount: 501, Verifier: sha1(api_key+'trololololololo')}},
+
+		///////////////////////////////////
+                ///TESTING LEADERBOARD ENDPOINTS///
+                ///////////////////////////////////
+		// SCORE ADD
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:1, LeaderboardId:1,Score:100}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:1, LeaderboardId:2,Score:10}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:1, LeaderboardId:3,Score:1}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:2, LeaderboardId:1,Score:2}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:2, LeaderboardId:2,Score:20}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:2, LeaderboardId:3,Score:200}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:3, LeaderboardId:1,Score:3}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:3, LeaderboardId:1,Score:30}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:3, LeaderboardId:1,Score:300}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:4, LeaderboardId:1,Score:400}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:4, LeaderboardId:2,Score:4}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:4, LeaderboardId:3,Score:40}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:5, LeaderboardId:2,Score:50}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:5, LeaderboardId:2,Score:5}},
+		{title: '4. SCORE POST', type: 'POST', endpoint:'scorepost', JSON:{UserId:5, LeaderboardId:3,Score:50}},
+		
+		// LEADERBOARD GET ENTRIES
+		{title: '5. LEADERBOARD GET ID 1 USER 1', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:1, LeaderboardId:1,Offset:0, Limit:1000}},
+		{title: '5. LEADERBOARD GET ID 1 USER 2', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:2, LeaderboardId:1,Offset:0, Limit:1000}},
+		{title: '5. LEADERBOARD GET ID 1 USER 3', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:3, LeaderboardId:1,Offset:0, Limit:1000}},
+		{title: '5. LEADERBOARD GET ID 1 USER 4', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:4, LeaderboardId:1,Offset:0, Limit:1000}},
+		{title: '5. LEADERBOARD GET ID 1 USER 5', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:5, LeaderboardId:1,Offset:0, Limit:1000}},
+		
+		// LEADERBOAR GET TEST OFFSET LIMIT
+		{title: '5. LEADERBOARD GET ID 1 USER 3 OFFSET 1 LIMIT 1', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:3, LeaderboardId:1,Offset:1, Limit:1}},
+
+		//////////////////////////
+                ///TESTING API SECURITY///
+                //////////////////////////
+		{title: 'Not declared endpoint', type: 'POST', endpoint:'notexists'},
+		{title: 'Not implemented endpoint', type: 'POST', endpoint:'notimplementedendpoint'},
+		{title: 'Bad input type (JSON index missing)', type: 'POST', endpoint:'notimplementedendpoint'},
+		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'notimplementedendpoint'},
+		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'notimplementedendpoint'},
+		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'notimplementedendpoint'},
+		{title: 'Bad input type (Argument wrong type)', endpoint:'notimplementedendpoint'},
+		{title: 'Bad input type (Argument wrong type)', endpoint:'notimplementedendpoint'},
+		{title: 'Bad input type (Argument wrong type)', endpoint:'notimplementedendpoint'},
+	];
+
+	$.each(request_array, function(index, request) {
+		$.ajax({
+			url: server_url +  request.endpoint,
+			method: request.type,
+			traditional: true,
+			async: false,
+			data: {JSON:JSON.stringify(request.JSON)},
+		}).always(function( data, textStatus, xhr ) {
+			$('#result').append('<h3>' + request.title + '</h3>');
+			$('#result').append('<div style="background-color: #ffe6e6; border: 1px solid black; margin-bottom:5px">Request type : ' + request.type + '<br>Request url : ' + server_url + request.endpoint + '<br>Request data : ' + JSON.stringify(request.JSON) + '</div>');
+			$('#result').append('<div style="background-color: #e6f2ff; border: 1px solid black">Response HTTP code: ' + xhr.status  +  '<br>Response HTTP Text: ' + xhr.statusText + '<br>Response content: ' + JSON.stringify(data) + '</div>');
+		});
+	});
+});
+</script>
+</head>
+<body>
+<div id="result"></div>
+</body>
+</html>

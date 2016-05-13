@@ -1,0 +1,8 @@
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+	RewriteEngine On
+	RewriteCond %{REQUEST_URI} !\.(html|css|js|less|jpg|png|gif)$
+	RewriteRule ^ index.php [L]
+</IfModule>
+
