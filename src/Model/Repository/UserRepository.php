@@ -5,6 +5,8 @@ use PDO;
 use PDOException;
 use App\Model\Entity\User;
 use App\Model\Exception\UserException;
+use App\Model\Entity\Transaction;
+use App\Model\Exception\TransactionException;
 
 class UserRepository
 {
@@ -19,33 +21,59 @@ class UserRepository
         {
                 $sql = "SELECT *
                 FROM user USR
-                LEFT JOIN userdata DAT ON DAT._usr_id = USR.usr_id
                 WHERE USR.usr_id = :b_usr_id";
 
                 $stmt = $this->_db->prepare($sql);
                 $stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
                 $stmt->execute();
-                $res = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $res_user = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 		// If user not found
-                if(count($res) === 0){
+                if(count($res_user) === 0){
 			// throw UserException
                         throw new UserException(sprintf(UserException::MESSAGE_NOT_FOUND, $usr_id), UserException::CODE_NOT_FOUND);
                 } else {
+			// Get User's userdata
+			$sql = "SELECT * FROM userdata where _usr_id = :b_usr_id";
+
+                	$stmt = $this->_db->prepare($sql);
+			$stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
+        	        $stmt->execute();
+	                $res_userdata = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		
+			// Get User's transactions
+                        $sql = "SELECT * FROM transaction where _usr_id = :b_usr_id";
+			
+                	$stmt = $this->_db->prepare($sql);
+                        $stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
+                        $stmt->execute();
+                        $res_transaction = $stmt->fetchAll(PDO::FETCH_ASSOC);
+		
 			// Create new user object
                         $user = new User($usr_id);
-			// add userdata to user object
-                        foreach($res as $data) {
-                                if($data['usrd_id'] != null) {
-					try {
-                                        	$user->addData($data['usrd_id'], unserialize($data['data']));
-					} catch(UserException $e) {
-						// Userdata can't be added to user object
-						// Can't happen here (duplicated userdata can't be persisted in database)
-						// Do nothing
-					}
+		
+			// Add userdatas to user object
+			foreach($res_userdata as $userdata) {
+				try {
+                                	$user->addData($userdata['usrd_id'], unserialize($userdata['data']));
+				} catch(UserException $e) {
+					// Userdata can't be added to user object
+					// Can't happen here (duplicated userdata can't be persisted in database)
+					// Do nothing (don't add userdata to User object)
                                 }
                         }
+
+			// Add transactions to user
+			foreach($res_transaction as $transaction) {
+				try {
+					$transaction_obj = new Transaction($transaction['tra_id'], $user, $transaction['tra_currencyamount'], $transaction['tra_verifier']);
+					$user->addTransaction($transaction_obj);
+				} catch (TransactionException $e) {
+					// Transaction can't be added to user object
+                                        // Can't happen here (duplicated transaction can't be persisted in database)
+                                        // Do nothing (don't add transaction to UserObject)
+				}
+			}
                         return $user;
                 }
         }

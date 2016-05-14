@@ -6,6 +6,7 @@ use PDOException;
 
 use App\Request;
 use App\Response;
+use App\ApiException;
 use App\Model\Entity\Transaction;
 use App\Model\Repository\TransactionRepository;
 use App\Model\Exception\TransactionException;
@@ -34,11 +35,23 @@ class Api
 	{
 		// Save the HTTP request & API key in class attribute
 		$this->_request = $request;
-
-		// If JSON index exists in request, erase the whole $_POST array with its content, json decoded
-		If(true === isset($this->_request->request['JSON'])) {
-			$this->_request->request = json_decode($this->_request->request['JSON'], true);
+		
+		try {
+			// If JSON index exists in request, erase the whole $_POST array with its content, json decoded
+			If(true === isset($this->_request->request['JSON'])) {
+				$this->_request->request = json_decode($this->_request->request['JSON'], true);
+				// If JSON input parameter not well formatted
+				if( JSON_ERROR_NONE != json_last_error() ) {
+					// Throw JSON ApiException
+					throw new ApiException(ApiException::MESSAGE_INPUT_JSON, ApiException::CODE_INPUT_JSON);
+				}
+			}
+		} catch(ApiException $e) {
+				// Return 500 HTTP status	
+			return new Response(json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionCode' => $e->getCode(), 'ExceptionTrace' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR);
+		
 		}
+
 		$this->_api_key = $api_key;
 		$this->_expected_inputs = $expected_inputs;
 
@@ -52,37 +65,60 @@ class Api
 	{
 		// Get endpoint required from request object
 		$endpoint = $this->_request->attributes['filename'];
+		
+		try {
+			// If endpoint required not declared in configuration or if HTTP request type does not matche with configuration
+			if(false === isset($this->_expected_inputs[$endpoint]) || false === isset($this->_expected_inputs[$endpoint]["type"]) || $this->_expected_inputs[$endpoint]["type"] !== $this->_request->method  ) {
+				// throw endpoint not found ApiException
+				throw new ApiException(sprintf(ApiException::MESSAGE_ENDPOINT_NOT_EXISTS, $endpoint), ApiException::CODE_ENDPOINT_NOT_EXISTS );
+			// if endpoint not implemented
+			} elseif(false === method_exists($this, $endpoint)) {
+				// Throw ENDPOINT NOT IMPLEMENTED ApiException
+				throw new ApiException(sprintf(ApiException::MESSAGE_ENDPOINT_NOT_IMPLEMENTED, $endpoint), ApiException::CODE_ENDPOINT_NOT_IMPLEMENTED); 
+			} else {
+				// Check if configuration matches with request params => filter inputs
+				if(true === isset($this->_expected_inputs[$endpoint]["data"]["JSON"])) {
+					// If endpoint expects parameters
+					// For each expected parameter
+					foreach($this->_expected_inputs[$endpoint]["data"]["JSON"] as $param_name => $param_validation) {
+						if(false === isset($this->_request->request[$param_name])) {
+							// Param name configured is missing 
+							// Throw input missing ApiException
+							throw new ApiException(ApiException::MESSAGE_INPUT_MISSING, ApiException::CODE_INPUT_MISSING);
+						} elseif(false === $param_validation($this->_request->request[$param_name])) {
+							// If parameter does not valid validation function
+							// Throw input wrong type ApiException
+							throw new ApiException(ApiException::MESSAGE_INPUT_TYPE, ApiException::CODE_INPUT_TYPE);
+						}
+					}	
+				}
 
-		// If endpoint required not declared in configuration or if HTTP request type does not matche with configuration
-		if(false === isset($this->_expected_inputs[$endpoint]) || false === isset($this->_expected_inputs[$endpoint]["type"]) || $this->_expected_inputs[$endpoint]["type"] !== $this->_request->method  ) {
-			// return a 404 HTTP status
-			return new Response(json_encode(array('Error' => true, 'ErrorMessage' => 'Endpoint not found')), Response::HTTP_NOT_FOUND);
-		// if endpoint not implemented
-		} elseif(false === method_exists($this, $endpoint)) {
-			// return a 501 HTTP status
-			return new Response(json_encode(array('Error' => true, 'ErrorMessage' => 'Endpoint not implemented')), Response::HTTP_NOT_IMPLEMENTED);
-		} else {
-			// Check if configuration matches with request params => filter inputs
-			if(true === isset($this->_expected_inputs[$endpoint]["data"]["JSON"])) {
-				// If endpoint is expects parameters
-				foreach($this->_expected_inputs[$endpoint]["data"]["JSON"] as $param_name => $param_validation) {
-					if(false === isset($this->_request->request[$param_name]) || false === $param_validation($this->_request->request[$param_name])) {
-						// Param name configured is missing or param value is not valid
-						// Return 500 HTTP status
-						return new Response(json_encode(array('Error' => true, 'ErrorMessage' => 'A parameter is missing or has a wrong type. Please check your request.')), Response::HTTP_INTERNAL_SERVER_ERROR);
-					}
-				}	
-			}
-
-			try {
 				// Execute endpoint method and return result (HTTP response obj)
 				$response = $this->$endpoint();
 				return $response;
-			} catch (PDOException $e) {
-				// Uncaught PDOException
-				// Return a 500 HTTP status
-				return new Response( json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionDetails' => $e->getCode() . $e->getMessage() . $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR);
 			}
+		} catch( ApiException $e ) {
+			// If API Exception
+			// Depending on code
+			switch($e->getCode()){
+				case ApiException::CODE_ENDPOINT_NOT_IMPLEMENTED:
+					// If endpoint not implemented
+					// Return NOT IMPLEMENTED HTTP STATUS
+					return new Response(json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionCode' => $e->getCode(), 'ExceptionTrace' => $e->getTraceAsString())), Response::HTTP_NOT_IMPLEMENTED);
+					break;
+				default:
+					// DEFAULT
+					// RETURN 500 HTTP STATUS
+					return new Response(json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionCode' => $e->getCode(), 'ExceptionTrace' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR);
+			}
+		} catch( PDOException $e) {
+			// If PDO Exception
+			// return HTTP 500 status
+			return new Response(json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionCode' => $e->getCode(), 'ExceptionTrace' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR);
+		} catch(Exception $e) {
+			// If other uncaught Exception
+			// return HTTP 500 status
+			return new Response(json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionCode' => $e->getCode(), 'ExceptionTrace' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR);
 		}
 	}
 
@@ -91,21 +127,33 @@ class Api
 		$date = new \DateTime();
 		return new Response( json_encode(array('Timestamp' => $date->getTimestamp())));	
 	}
-
+	/**
+	 *
+	 *
+	 *
+	 */
 	public function transaction()
 	{
 		$post = $this->_request->request;
-		
-		$transaction = new Transaction($post['TransactionId'], $post['UserId'], $post['CurrencyAmount'], $post['Verifier']);	
 
 		try {
-			//Check verifier
-			if( sha1($this->_api_key . $transaction) != $transaction->tra_verifier ) { 
-				throw new TransactionException(TransactionException::MESSAGE_WRONG_VERIFIER, TransactionException::CODE_WRONG_VERIFIER);
-			}
-			$this->transactionRepository->addTransaction($transaction);
-			return new Response( json_encode(array('Success' => true)), Response::HTTP_OK);
-		} catch( TransactionException $e) {
+			// Get transaction's user
+			$user = $this->userRepository->getUserById($post['UserId']);
+			
+			// Create new Transcation
+			$transaction = new Transaction($post['TransactionId'], $user, $post['CurrencyAmount'], $post['Verifier']);	
+			// Check transaction's verifier
+			try {
+				$transaction->checkVerifier($this->_api_key);
+				// Add transaction (joined object User is nor added/updated)
+				$this->transactionRepository->addTransaction($transaction);
+				return new Response( json_encode(array('Success' => true)), Response::HTTP_OK);
+			} catch( TransactionException $e ) {
+				// Verifier is not correct or Transaction can't be added
+				return new Response( json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionDetails' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR );	
+			} 
+		} catch (UserException $e) {
+			// Transaction's User can't be found
 			return new Response( json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionDetails' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR );	
 		}
 	}
@@ -115,8 +163,13 @@ class Api
 		$post = $this->_request->request;
 		
 		try {
-			$stats_array = $this->transactionRepository->getTransactionStatsByUserId($post['UserId']);
-			return new Response( json_encode($stats_array), Response::HTTP_OK );
+			// Get User (user's transactions are loaded into "transactions" user attribute)
+			$user = $this->userRepository->getUserById($post['UserId']);
+			
+			return new Response( json_encode( array( 'TransactionCount' => $user->getTransactionsCount(), 'CurrencySum' => $user->getTransactionsCurrencyamountSum())  ), Response::HTTP_OK );
+		} catch(UserRepository $e) {
+			// No User was found
+
 		} catch(TransactionException $e) {
 			// No transaction was found for this specified user.
 			$stats_array = array('UserId' => $post['UserId'], 'TransactionCount' => 0, 'CurrencySum' => 0);

@@ -7,6 +7,7 @@ use App\Api;
 include_once __DIR__ . '/../src/Request.php';
 include_once __DIR__ . '/../src/Response.php';
 include_once __DIR__ . '/../src/Api.php';
+include_once __DIR__ . '/../src/ApiException.php';
 
 include_once __DIR__ . '/../src/Model/Entity/Transaction.php';
 include_once __DIR__ . '/../src/Model/Repository/TransactionRepository.php';

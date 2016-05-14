@@ -2,17 +2,44 @@
 namespace App\Model\Entity;
 
 use App\Model\Exception\UserException;
+use App\Model\Entity\Transaction;
+use App\Model\Exception\TransactionException;
 
 class User 
 {
 	private	$usr_id;
 
 	private $data;
+	
+	private $transactions;
 
 	public function __construct($usr_id) 
 	{
 		$this->usr_id = $usr_id;
 		$this->data = array();
+		$this->transactions = array();
+	}
+
+	public function addTransaction(Transaction $transaction) {
+		if(false === isset($this->transactions[$transaction->tra_id])) {
+			$this->transactions[$transaction->tra_id] = $transaction;
+		} else {
+			throw new TransactionException(sprintf(TransactionException::MESSAGE_EXISTS, $transaction->tra_id),TransactionException::CODE_EXISTS );
+		}
+	}
+	
+	public function getTransactionsCount()
+	{
+		return count($this->transactions);
+	}
+
+	public function getTransactionsCurrencyamountSum()
+	{
+		$sum = 0;
+		foreach($this->transactions as $transaction){
+			$sum += $transaction->tra_currencyamount;
+		}
+		return $sum;
 	}
 
 	public function addData($data_key, $data) {

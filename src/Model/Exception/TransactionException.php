@@ -6,8 +6,8 @@ class TransactionException extends \Exception
 	const CODE_WRONG_VERIFIER = 1001;
 	const MESSAGE_WRONG_VERIFIER = "Verifier error. Please check your API key.";
 
-	const CODE_TRANSACTION_ALREADY_EXISTS = 1002;
-	const MESSAGE_TRANSACTION_ALREADY_EXISTS = 'Transaction (id: %d) was already recorded.';
+	const CODE_EXISTS = 1002;
+	const MESSAGE_EXISTS = 'Transaction (id: %d) was already recorded.';
 
 	const CODE_USER_NOT_FOUND = 1003;
 	const MESSAGE_USER_NOT_FOUND = "Transaction's user (id: %d) cannot be found.";
