@@ -4,23 +4,28 @@ namespace App\Model\Entity;
 use App\Model\Exception\UserException;
 use App\Model\Entity\Transaction;
 use App\Model\Exception\TransactionException;
+use App\Model\Entity\Userdata;
+use App\Model\Exception\UserdataException;
 
 class User 
 {
 	private	$usr_id;
 
-	private $data;
+	private $userdata;
 	
 	private $transactions;
 
 	public function __construct($usr_id) 
 	{
 		$this->usr_id = $usr_id;
-		$this->data = array();
+		$this->userdata = array();
 		$this->transactions = array();
 	}
 
 	public function addTransaction(Transaction $transaction) {
+		// @TODO Should check if user transition Object is same id than this?
+		
+		// If transition doesn't already exist
 		if(false === isset($this->transactions[$transaction->tra_id])) {
 			$this->transactions[$transaction->tra_id] = $transaction;
 		} else {
@@ -42,24 +47,26 @@ class User
 		return $sum;
 	}
 
-	public function addData($data_key, $data) {
-		// If data already exists
-		if(true === isset($this->data[$data_key])) {
-			// Throw UserException data can't be added
-			throw UserException(sprintf(UserException::MESSAGE_DATA_EXISTS, $data_key, $this->usr_id), UserException::CODE_DATA_EXISTS);	
+	public function addUserdata(Userdata $userdata) {
+		// @TODO Should check if user userdata Object is same id than this?
+
+		// If userdata already exists
+		if(true === isset($this->userdata[$userdata->usrd_id])) {
+			// Throw UserException userdata can't be added
+			throw UserException(sprintf(UserException::MESSAGE_DATA_EXISTS, $userdata->usrd_id . $this->usr_id, $this->usr_id), UserException::CODE_DATA_EXISTS);	
 		} else {
-			// Update/Create data
-			$this->data[$data_key] = $data;
+			// Update/Create userdata
+			$this->userdata[$userdata->usrd_id] = $userdata;
 		}
 	}
 
-	public function updateData($data_key, $data) {
-		// If data doesn't exist
-		if(false === isset($this->data[$data_key])) {
+	public function updateUserdata(Userdata $userdata) {
+		// If userdata doesn't exist
+		if(false === isset($this->userdata[$userdata->usrd_id])) {
 			// Throw UserException data does not exists
-			throw new UserException(sprintf(UserException::MESSAGE_DATA_NOT_EXISTS, $data_key, $this->usr_id), UserException::CODE_DATA_NOT_EXISTS);
+			throw new UserdataException(sprintf(UserException::MESSAGE_DATA_NOT_EXISTS, $userdata->usrd_id, $this->usr_id), UserException::CODE_DATA_NOT_EXISTS);
 		} else {
-			$this->data[$data_key] = $data;
+			$this->userdata[$userdata->usrd_id] = $userdata;
 		}	
 	}
 

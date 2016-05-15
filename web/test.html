@@ -93,8 +93,8 @@ $(function() {
 		//////////////////////////
                 ///TESTING API SECURITY///
                 //////////////////////////
-		{title: 'Not declared endpoint', type: 'POST', endpoint:'notexists'},
-		{title: 'Not implemented endpoint', type: 'POST', endpoint:'notimplementedendpoint'},
+		{title: 'Not declared endpoint', type: 'GET', endpoint:'notexists'},
+		{title: 'Not implemented endpoint', type: 'GET', endpoint:'notimplementedendpoint'},
 		// {title: 'Bad input type (JSON index missing)', type: 'POST', endpoint:'notimplementedendpoint'},
 
 		{title: 'Bad input type (Argument missing)', type: 'POST', endpoint:'leaderboardget', JSON:{UserId:5, Offset:0, Limit:1000}},

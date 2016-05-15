@@ -17,6 +17,23 @@ class TransactionRepository
 		$this->_db = $db;	
 	}
 
+	public function getTransactionByUserId($usr_id)
+	{
+		$sql = "SELECT * FROM transaction TRA 
+		INNER JOIN user USR ON USR.usr_id = TRA._usr_id
+		WHERE TRA._usr_id = :b_usr_id";
+		$stmt = $this->_db->prepare($sql);
+		$stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
+		$stmt->execute();
+		$res = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+		$return = array();
+		foreach($res as $transaction_array) {
+			$return[$transaction_array['tra_id']] = new Transaction($transaction_array['tra_id'], new User($usr_id),$transaction_array['tra_currencyamount'], $transaction_array['tra_verifier']);
+		}
+		return $return;		
+	}
+
 	public function addTransaction(Transaction $transaction)
 	{
 		$sql = "INSERT INTO transaction (`tra_id`, `_usr_id`, `tra_currencyamount`, `tra_verifier`) VALUES (:b_tra_id, :b_usr_id, :b_tra_currencyamount, :b_tra_verifier)";

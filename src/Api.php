@@ -13,6 +13,9 @@ use App\Model\Exception\TransactionException;
 use App\Model\Entity\User;
 use App\Model\Repository\UserRepository;
 use App\Model\Exception\UserException;
+use App\Model\Entity\Userdata;
+use App\Model\Repository\UserdataRepository;
+use App\Model\Exception\UserdataException;
 use App\Model\Entity\Leaderboard;
 use App\Model\Repository\LeaderboardRepository;
 use App\Model\Exception\LeaderboardException;
@@ -28,6 +31,8 @@ class Api
 	private $transactionRepository;
 
 	private $userRepository;
+	
+	private $userdataRepository;
 
 	private $leaderboardRepository;
 
@@ -58,6 +63,7 @@ class Api
 		// Initialize Repositories
 		$this->transactionRepository = new TransactionRepository($db);
 		$this->userRepository = new UserRepository($db);
+		$this->userdataRepository = new UserdataRepository($db);
 		$this->leaderboardRepository = new LeaderboardRepository($db);
 	}
 
@@ -154,7 +160,7 @@ class Api
 			} 
 		} catch (UserException $e) {
 			// Transaction's User can't be found
-			return new Response( json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionDetails' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR );	
+			return new Response( json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionCode' => $e->getCode(), 'ExceptionTrace' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR );	
 		}
 	}
 
@@ -169,9 +175,11 @@ class Api
 			return new Response( json_encode( array( 'TransactionCount' => $user->getTransactionsCount(), 'CurrencySum' => $user->getTransactionsCurrencyamountSum())  ), Response::HTTP_OK );
 		} catch(UserRepository $e) {
 			// No User was found
-
+			return new Response( json_encode(array('Error' => true, 'ErrorMessage' => $e->getMessage(), 'ExceptionCode' => $e->getCode(), 'ExceptionTrace' => $e->getTraceAsString())), Response::HTTP_INTERNAL_SERVER_ERROR );	
 		} catch(TransactionException $e) {
 			// No transaction was found for this specified user.
+			// Initialize stats array with empty values
+			// Return HTTP 200 STATUS
 			$stats_array = array('UserId' => $post['UserId'], 'TransactionCount' => 0, 'CurrencySum' => 0);
 			return new Response( json_encode($stats_array), Response::HTTP_OK );
 		}
@@ -245,15 +253,16 @@ class Api
 		try {
 			// Get User
 			$user = $this->userRepository->getUserById($post['UserId']);
-			// Update/Add user data to user
+			// Update/Add userdata to user
 			foreach($post['Data'] as $data_key => $data) {
+				$userdata = new Userdata($data_key, $user, $data);
 				try {
-					$user->updateData($data_key, $data);
-				} catch (UserException $e) {
+					$user->updateUserdata($userdata);
+				} catch (UserdataException $e) {
 					// Data does not exist for the user
 					// Try to add data
 					try {
-						$user->addData($data_key, $data);
+						$user->addUserdata($userdata);
 					} catch (UserException $e) {
 						// Data already exists for the user
 						// Can't happen, do nothing
@@ -277,7 +286,8 @@ class Api
 			// Add Userdata to User object
 			foreach($post['Data'] as $data_key => $data) {
 				try {
-					$user->addData($data_key, $data);		
+					$userdata = new Userdata($data_key, $user, $data);
+					$user->addUserdata($userdata);		
 				} catch (UserException $e) {
 					// Data already exists Means here duplication in data array coming from request
 					// Do nothing (ignore duplication)
@@ -302,7 +312,7 @@ class Api
 		
 		try {
 			$user = $this->userRepository->getUserById($post['UserId']);
-			return new Response( json_encode( $user->data, Response::HTTP_OK) );
+			return new Response( json_encode( $user->userdata ), Response::HTTP_OK);
 		} catch(UserException $e) {
 			// User does not exist
 			// Returning empty json object according to spec
@@ -313,7 +323,7 @@ class Api
 	public function reset()
 	{
 		$res = array(
-			'UserData deleted' => $this->userRepository->removeUserDataAll(),
+			'UserData deleted' => $this->userdataRepository->removeUserDataAll(),
 			'Score deleted' => $this->leaderboardRepository->removeScoreAll(),
 			// No leaderboard add endpoint... So keep leaderboard in datatbase
 			// 'Leaderboard deleted' => $this->leaderboardRepository->removeAll(),

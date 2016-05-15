@@ -5,16 +5,27 @@ use PDO;
 use PDOException;
 use App\Model\Entity\User;
 use App\Model\Exception\UserException;
+use App\Model\Entity\Userdata;
+use App\Model\Exception\UserdataException;
+use App\Model\Repository\UserdataRepository;
 use App\Model\Entity\Transaction;
+use App\Model\Repository\TransactionRepository;
 use App\Model\Exception\TransactionException;
 
 class UserRepository
 {
 	private $_db;
 
+	private $transactionRepository;
+	
+	private $userdataRepository;
+
 	public function __construct(PDO $db)
 	{
 		$this->_db = $db;
+		
+		$this->transactionRepository = new TransactionRepository($db);
+		$this->userdataRepository = new UserdataRepository($db);
 	}
 
 	public function getUserById($usr_id)
@@ -33,29 +44,15 @@ class UserRepository
 			// throw UserException
                         throw new UserException(sprintf(UserException::MESSAGE_NOT_FOUND, $usr_id), UserException::CODE_NOT_FOUND);
                 } else {
-			// Get User's userdata
-			$sql = "SELECT * FROM userdata where _usr_id = :b_usr_id";
-
-                	$stmt = $this->_db->prepare($sql);
-			$stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
-        	        $stmt->execute();
-	                $res_userdata = $stmt->fetchAll(PDO::FETCH_ASSOC);
-		
-			// Get User's transactions
-                        $sql = "SELECT * FROM transaction where _usr_id = :b_usr_id";
-			
-                	$stmt = $this->_db->prepare($sql);
-                        $stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
-                        $stmt->execute();
-                        $res_transaction = $stmt->fetchAll(PDO::FETCH_ASSOC);
-		
 			// Create new user object
                         $user = new User($usr_id);
 		
+			// Get User's Userdata
+			$res_userdata = $this->userdataRepository->getUserdataByUserId($usr_id);
 			// Add userdatas to user object
 			foreach($res_userdata as $userdata) {
 				try {
-                                	$user->addData($userdata['usrd_id'], unserialize($userdata['data']));
+                                	$user->addUserdata($userdata);
 				} catch(UserException $e) {
 					// Userdata can't be added to user object
 					// Can't happen here (duplicated userdata can't be persisted in database)
@@ -63,11 +60,12 @@ class UserRepository
                                 }
                         }
 
+			// Get User's Transitions 
+			$res_transaction = $this->transactionRepository->getTransactionByUserId($usr_id);
 			// Add transactions to user
 			foreach($res_transaction as $transaction) {
 				try {
-					$transaction_obj = new Transaction($transaction['tra_id'], $user, $transaction['tra_currencyamount'], $transaction['tra_verifier']);
-					$user->addTransaction($transaction_obj);
+					$user->addTransaction($transaction);
 				} catch (TransactionException $e) {
 					// Transaction can't be added to user object
                                         // Can't happen here (duplicated transaction can't be persisted in database)
@@ -104,9 +102,9 @@ class UserRepository
 		}
 
 		// INSERT USERDATA
-		foreach($user->data as $data_key => $data) {
+		foreach($user->userdata as $userdata) {
 			try {
-				$this->addUserdata($usr_id, $data_key, $data);
+				$this->addUserdata($userdata);
 			} catch(UserException $e) {
 				// Depending on Exception code
 				switch($e->getCode) {
@@ -119,7 +117,7 @@ class UserRepository
 						// Userdata already exists for this user
 						// Update user data
 						try {
-							$this->updateUserdata($usr_id, $data_key, $data);
+							$this->updateUserdata($userdata);
 						} catch (UserException $e) {
 							// Userdata can't be found or user do not exists
 							// Not supose to happend (user just added, data exists) 
@@ -141,9 +139,9 @@ class UserRepository
 		// So, no need to update user itself...	
 
 		// Update each userdata
-		foreach($user->data as $data_key => $data) {
+		foreach($user->userdata as $userdata) {
 			try {
-				$this->updateUserdata($user->usr_id, $data_key, $data);
+				$this->userdataRepository->updateUserdata($userdata);
 			} catch(UserException $e) {
 				// Depending on the exception code
 				switch($e->getCode()) {
@@ -155,7 +153,7 @@ class UserRepository
 						// Userdata not exists
 						// Add Userdata
 						try {
-							$this->addUserdata($user->usr_id, $data_key, $data);
+							$this->userdataRepository->addUserdata($userdata);
 						} catch(UserdataException $e) {
 							// Depending on UserException code
 							switch($e->getCode()) {
@@ -175,81 +173,8 @@ class UserRepository
 			}	
 		}
 
-		//return		
+		return true;		
 	}
-
-	public function addUserdata($usr_id, $data_key, $data)
-	{
-		$sql = 'INSERT INTO userdata (`usrd_id`, `_usr_id`, `data`) VALUES (:b_usrd_id, :b_usr_id, :b_data)';
-		
-		try {
-			$stmt = $this->_db->prepare($sql);
-			$stmt->bindValue(':b_usrd_id', $data_key);
-			$stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
-			$stmt->bindValue(':b_data', serialize($data));
-			return $stmt->execute();
-		} catch(PDOException $e) {
-			// Depending on driver error code ($e->getCode() => SQLSTATE not accurate enought : 23000 => a constraint failed...)
-			// TODO driver error codes in constants somewhere?
-			switch($e->errorInfo[1]) {
-				case 1062:
-					// Primary key constraint failed
-					// Throw "already exist userdata" Exception
-					throw new UserException(sprintf(UserException::MESSAGE_DATA_EXISTS, $data_key, $usr_id), UserException::CODE_DATA_EXISTS, $e);
-					break;
-				case 1452:
-					// Foreign key constraint failed
-					// Throw "not exists user" Exception
-					throw new UserException(sprintf(UserException::MESSAGE_NOT_FOUND, $usr_id), UserException::CODE_NOT_FOUND, $e);
-					break;
-				default:
-					// Other database Exception
-					// Rethrow Exception
-					throw $e;
-			}
-		}
-	}
-
-	public function updateUserdata($usr_id, $data_key, $data)
-	{
-		$sql = 'UPDATE userdata USRD SET `data` = :b_data WHERE USRD.usrd_id = :b_usrd_id AND USRD._usr_id = :b_usr_id';
-		
-		$stmt = $this->_db->prepare($sql);
-		$stmt->bindValue(':b_usrd_id', $data_key);
-                $stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
-                $stmt->bindValue(':b_data', serialize($data));
-		$stmt->execute();
-		// If userdata was updated
-		if($stmt->rowCount() === 1) {
-			return $stmt->rowCount();
-		} else {
-			// Update failed : data was the same or userdata cannot be found
-			// TODO How to know the difference? Find an other way to new select request...
-			$sql = 'SELECT COUNT(*) FROM userdata USRD WHERE USRD.usrd_id = :b_usrd_id AND USRD._usr_id = :b_usr_id';
-			$stmt = $this->_db->prepare($sql);
-	                $stmt->bindValue(':b_usrd_id', $data_key);
-        	        $stmt->bindValue(':b_usr_id', $usr_id, PDO::PARAM_INT);
-        	        $stmt->execute();
-			$res = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
-			
-			if($res[0] > 0) {
-				// if userdata exists => userdata wasnot updated because the same
-				throw new UserException(sprintf(UserException::CODE_DATA_EXISTS, $data_key, $usr_id), UserException::CODE_DATA_EXISTS);	
-			} else {
-				// if userdata do not exist => userdata wasnot updated because not exeists
-				throw new UserException(sprintf(UserException::MESSAGE_DATA_NOT_EXISTS, $data_key, $usr_id), UserException::CODE_DATA_NOT_EXISTS);	
-			}		
-		}
-	}
-
-
-	public function removeUserdataAll()
-        {
-                $sql = "DELETE FROM userdata";
-                $stmt = $this->_db->prepare($sql);
-                $stmt->execute();
-		return $stmt->rowCount();
-        }
 
 	public function removeAll()
         {
